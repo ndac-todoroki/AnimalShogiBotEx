@@ -75,8 +75,8 @@ defmodule AnimalShogiEx.Game do
     end
   end
 
-  @spec drop(pid(), Piece.t(), <<_::16>>) :: any()
-  def drop(game, piece, to_string) when Piece.is_piece(piece) do
+  @spec drop(pid(), Piece.type(), <<_::16>>) :: any()
+  def drop(game, piece, to_string) when Piece.is_type(piece) do
     with {:ok, position} <- Position.new(to_string) do
       GenServer.call(game, {:drop, {piece, position}})
     else

@@ -5,13 +5,16 @@ defmodule AnimalShogiEx.Piece do
 
   alias __MODULE__, as: Piece
   alias AnimalShogiEx.Move
+  alias Piece.{Hiyoko, Kirin, Zo, Niwatori, Lion}
   require Move
 
-  @piece_types [Piece.Hiyoko, Piece.Kirin, Piece.Lion, Piece.Niwatori, Piece.Zo]
+  @piece_types [Hiyoko, Kirin, Lion, Niwatori, Zo]
+  @type type :: Hiyoko | Kirin | Lion | Niwatori | Zo
 
-  @type t :: Piece.Hiyoko | Piece.Kirin | Piece.Lion | Piece.Niwatori | Piece.Zo
+  defstruct [:type]
+  @type t :: %Piece{type: type()}
 
-  defguard is_piece(piece) when piece in @piece_types
+  defguard is_type(piece_type) when piece_type in @piece_types
 
   @doc """
   Return a sigil representing the Piece.
@@ -19,6 +22,9 @@ defmodule AnimalShogiEx.Piece do
   @callback sigil :: String.t()
 
   @callback moveable_directions :: [Move.direction()]
+
+  @spec new(Piece.type()) :: Piece.t()
+  def new(type) when is_type(type), do: %Piece{type: type}
 
   @doc """
   ## Example
@@ -31,24 +37,26 @@ defmodule AnimalShogiEx.Piece do
 
   """
   @spec moveable?(AnimalShogiEx.Piece.t(), AnimalShogiEx.Move.direction()) :: boolean
-  def moveable?(piece, direction)
-      when is_piece(piece) and Move.is_direction(direction),
-      do: piece.moveable?(direction)
+  def moveable?(%Piece{type: type}, direction)
+      when is_type(type) and Move.is_direction(direction),
+      do: type.moveable?(direction)
 
   @spec as_sigil(AnimalShogiEx.Piece.t()) :: String.t()
-  def as_sigil(piece) when is_piece(piece), do: piece.sigil()
+  def as_sigil(%Piece{type: type}) when is_type(type), do: type.sigil()
 
-  def friendly_name(piece) when is_piece(piece),
-    do: piece |> to_string() |> String.split(".") |> List.last()
+  def friendly_name(%Piece{type: type}) when is_type(type),
+    do: type |> to_string() |> String.split(".") |> List.last()
 
   @spec from_type(<<_::8>>) :: Piece.t()
-  def from_type(type)
-  def from_type("h"), do: Piece.Hiyoko
-  def from_type("k"), do: Piece.Kirin
-  def from_type("z"), do: Piece.Zo
+  def from_type("h"), do: %Piece{type: Hiyoko}
+  def from_type("k"), do: %Piece{type: Kirin}
+  def from_type("z"), do: %Piece{type: Zo}
 
   @spec moveable_directions(Piece.t()) :: [Move.direction()]
-  def moveable_directions(piece) when is_piece(piece), do: piece.moveable_directions
+  def moveable_directions(%Piece{type: type}) when is_type(type), do: type.moveable_directions
+
+  @spec moveable_directions(Piece.type()) :: [Move.direction()]
+  def moveable_directions(type) when is_type(type), do: type.moveable_directions
 end
 
 ### This is needed in case if you changed Pieces into Structs, instead of just being modules and atoms.

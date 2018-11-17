@@ -23,6 +23,7 @@ defmodule AnimalShogiEx.Piece.Niwatori do
   def moveable?(_), do: false
 
   @impl Piece
+  @spec moveable_directions :: [Move.direction()]
   def moveable_directions, do: @moveable_directions
 
   @impl Piece

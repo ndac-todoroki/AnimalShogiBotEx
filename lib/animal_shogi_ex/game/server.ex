@@ -71,20 +71,19 @@ defmodule AnimalShogiEx.Game.Server do
   end
 
   @impl GenServer
-  def handle_call({:drop, {type, %Position{} = at}}, _from, %__MODULE__{} = state)
-      when type |> Piece.is_piece() do
+  def handle_call({:drop, {%Piece{} = piece, %Position{} = at}}, _from, %__MODULE__{} = state) do
     # TODO: 持っていない駒を置こうとしたら {:error, :nonexistent}
 
     cond do
       State.vacant?(state.game_state, at) == false ->
         {:reply, {:error, :not_vacant}, state}
 
-      State.in_hand?(state.game_state, type) == false ->
+      State.in_hand?(state.game_state, piece) == false ->
         {:reply, {:error, :not_in_hand}, state}
 
       :else ->
         message =
-          State.prefix(state.game_state) <> Piece.as_sigil(type) <> "*" <> Position.to_string(at)
+          State.prefix(state.game_state) <> Piece.as_sigil(piece) <> "*" <> Position.to_string(at)
 
         state.socket |> :gen_tcp.send(message |> String.to_charlist())
 
@@ -320,13 +319,13 @@ defmodule AnimalShogiEx.Game.Server do
 
   defp perform_nari(
          %Game.State{} = state,
-         %Fighter{piece: Piece.Hiyoko, owner: owner},
+         %Fighter{piece: %Piece{type: Piece.Hiyoko}, owner: owner},
          position,
          true
        ) do
     state
     |> State.remove_fighter_at(position)
-    |> State.add_fighter_at(Piece.Niwatori, owner, position)
+    |> State.add_fighter_at(Piece.new(Piece.Niwatori), owner, position)
   end
 
   defp perform_nari(%Game.State{} = state, _piece, _position, _naru?), do: state
@@ -349,7 +348,7 @@ defmodule AnimalShogiEx.Game.Server do
 
   @spec drop_fighter(%__MODULE__{}, :player | :opponent, Piece.t(), Position.t()) ::
           {:ok, %__MODULE__{}} | {:error, :not_vacant}
-  defp drop_fighter(%__MODULE__{game_state: game_state} = state, owner, piece, at)
+  defp drop_fighter(%__MODULE__{game_state: game_state} = state, owner, %Piece{} = piece, at)
        when is_atom(owner) do
     with true <- game_state |> State.vacant?(at) do
       game_state =

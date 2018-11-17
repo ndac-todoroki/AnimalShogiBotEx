@@ -15,14 +15,14 @@ defmodule AnimalShogiEx.Fighter do
 
   defguard is_owner(owner) when owner in ~w(player opponent)a
 
-  @spec new(
-          AnimalShogiEx.Piece.t(),
-          AnimalShogiEx.Position.t(),
-          :player | :opponent
-        ) :: AnimalShogiEx.Fighter.t()
-  def new(piece, %Position{} = position, owner)
-      when Piece.is_piece(piece) and is_owner(owner),
+  @spec new(Piece.t() | Piece.type(), Position.t(), :player | :opponent) :: Fighter.t()
+  def new(%Piece{} = piece, %Position{} = position, owner)
+      when is_owner(owner),
       do: %__MODULE__{piece: piece, position: position, owner: owner}
+
+  def new(piece_type, %Position{} = position, owner)
+      when Piece.is_type(piece_type) and is_owner(owner),
+      do: %__MODULE__{piece: Piece.new(piece_type), position: position, owner: owner}
 
   @spec available_moves(t) :: [Move.direction()]
   def available_moves(%Fighter{} = fighter), do: fighter.piece |> Piece.moveable_directions()

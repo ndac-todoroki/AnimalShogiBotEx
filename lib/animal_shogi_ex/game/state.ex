@@ -8,6 +8,7 @@ defmodule AnimalShogiEx.Game.State do
 
   require Piece
   require Move
+  require Fighter
 
   defstruct ~w(fighters my_hand his_hand turn first?)a
 
@@ -67,12 +68,12 @@ defmodule AnimalShogiEx.Game.State do
   This will return false even if that Piece can never appear in the hand.
   """
   @spec in_hand?(State.t(), Piece.t()) :: boolean
-  def in_hand?(%__MODULE__{my_hand: hand}, piece) when Piece.is_piece(piece),
+  def in_hand?(%__MODULE__{my_hand: hand}, %Piece{} = piece),
     do: hand |> Enum.any?(&(&1 == piece))
 
   @spec add_to_hand(State.t(), Piece.t(), :player | :opponent) :: State.t()
-  def add_to_hand(%__MODULE__{} = state, piece, owner)
-      when Piece.is_piece(piece) and owner in ~w(player opponent)a do
+  def add_to_hand(%__MODULE__{} = state, %Piece{} = piece, owner)
+      when owner in ~w(player opponent)a do
     case owner do
       :opponent -> %{state | his_hand: [piece | state.my_hand]}
       :player -> %{state | my_hand: [piece | state.his_hand]}
@@ -182,7 +183,7 @@ defmodule AnimalShogiEx.Game.State do
   def remove_fighter_at(state, at),
     do: %{state | fighters: state.fighters |> State.Fighters.remove(at)}
 
-  def add_fighter_at(state, piece, owner, at),
+  def add_fighter_at(state, %Piece{} = piece, owner, at) when Fighter.is_owner(owner),
     do: %{state | fighters: state.fighters |> State.Fighters.add(Fighter.new(piece, at, owner))}
 end
 
