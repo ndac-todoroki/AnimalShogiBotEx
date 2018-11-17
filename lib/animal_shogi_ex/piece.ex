@@ -29,10 +29,11 @@ defmodule AnimalShogiEx.Piece do
   @doc """
   ## Example
 
-      iex> alias AnimalShogiEx.Piece
-      iex> Piece.Hiyoko |> Piece.moveable?(Move.Direction.UP)
+      iex> alias AnimalShogiEx.{Piece, Move}
+      iex> piyo = Piece.new(Piece.Hiyoko)
+      iex> piyo |> Piece.moveable?(Move.Direction.UP)
       true
-      iex> Piece.Hiyoko |> Piece.moveable?(Move.Direction.DOWN)
+      iex> piyo |> Piece.moveable?(Move.Direction.DOWN)
       false
 
   """
@@ -59,26 +60,26 @@ defmodule AnimalShogiEx.Piece do
   def moveable_directions(type) when is_type(type), do: type.moveable_directions
 end
 
-### This is needed in case if you changed Pieces into Structs, instead of just being modules and atoms.
-#
-# defprotocol AnimalShogiEx.Piece do
-#   @doc """
-#       iex> piyo = Piece.Hiyoko.new()
-#       iex> piyo |> AnimalShogiEx.Piece.moveable?(Direction.UP)
-#       true
-#   """
-#   @spec moveable?(AnimalShogiEx.t(), AnimalShogiEx.Move.direction()) :: boolean
-#   def moveable?(piece, direction)
-# end
-#
-# defmodule AnimalShogiEx.Piece.Implement do
-#   alias AnimalShogiEx.Piece
-#
-#   defmacro __using__(_) do
-#     quote do
-#       defimpl unquote(Piece), for: __MODULE__ do
-#         def moveable?(%me{}, direction), do: me.moveable?(direction)
-#       end
-#     end
-#   end
-# end
+defimpl AnimalShogiEx.Possibility.Sorter, for: AnimalShogiEx.Piece do
+  alias AnimalShogiEx.Piece
+  alias Piece.{Hiyoko, Kirin, Zo, Niwatori, Lion}
+
+  require Piece
+
+  # to order by types
+  @piece_types %{
+    Hiyoko => 10,
+    Kirin => 20,
+    Zo => 30,
+    Niwatori => 40,
+    Lion => 100
+  }
+
+  @spec asc(any(), any) :: boolean
+  def asc(%{type: type1}, %{type: type2}) when Piece.is_type(type1) and Piece.is_type(type2),
+    do: @piece_types[type1] >= @piece_types[type2]
+
+  @spec desc(any(), any) :: boolean
+  def desc(%{type: type1}, %{type: type2}) when Piece.is_type(type1) and Piece.is_type(type2),
+    do: @piece_types[type1] <= @piece_types[type2]
+end

@@ -120,3 +120,13 @@ end
 defimpl String.Chars, for: AnimalShogiEx.Position do
   def to_string(position), do: AnimalShogiEx.Position.to_string(position)
 end
+
+defimpl AnimalShogiEx.Possibility.Sorter, for: AnimalShogiEx.Position do
+  @spec asc(any(), any) :: boolean
+  def asc(%{row: r1, col: c1}, %{row: r2, col: c2}) when r1 == r2, do: c1 <= c2
+  def asc(%{row: r1}, %{row: r2}), do: r1 <= r2
+
+  @spec desc(any(), any) :: boolean
+  def desc(%{row: r1, col: c1}, %{row: r2, col: c2}) when r1 == r2, do: c1 >= c2
+  def desc(%{row: r1}, %{row: r2}), do: r1 >= r2
+end

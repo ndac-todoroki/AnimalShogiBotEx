@@ -35,3 +35,33 @@ defmodule AnimalShogiEx.Fighter do
       do: "hisF!(#{Piece.friendly_name(p)} at #{Kernel.inspect(pos)})"
   end
 end
+
+defimpl AnimalShogiEx.Possibility.Sorter, for: AnimalShogiEx.Fighter do
+  alias AnimalShogiEx.Possibility.Sorter
+
+  @spec asc(any(), any) :: boolean
+  def asc(%{piece: p1, position: pos1, owner: o1}, %{piece: p2, position: pos2, owner: o2})
+      when p1 == p2 and o1 == o2,
+      do: Sorter.asc(pos1, pos2)
+
+  def asc(%{piece: p1, owner: o1}, %{piece: p2, owner: o2})
+      when o1 == o2,
+      do: Sorter.asc(p1, p2)
+
+  def asc(%{owner: :opponent}, %{owner: :player}), do: false
+  def asc(%{owner: :player}, %{owner: :opponent}), do: true
+  def asc(_fighter, _), do: true
+
+  @spec desc(any(), any) :: boolean
+  def desc(%{piece: p1, position: pos1, owner: o1}, %{piece: p2, position: pos2, owner: o2})
+      when p1 == p2 and o1 == o2,
+      do: Sorter.desc(pos1, pos2)
+
+  def desc(%{piece: p1, owner: o1}, %{piece: p2, owner: o2})
+      when o1 == o2,
+      do: Sorter.desc(p1, p2)
+
+  def desc(%{owner: :opponent}, %{owner: :player}), do: true
+  def desc(%{owner: :player}, %{owner: :opponent}), do: false
+  def desc(_fighter, _), do: false
+end

@@ -185,6 +185,30 @@ defmodule AnimalShogiEx.Game.State do
 
   def add_fighter_at(state, %Piece{} = piece, owner, at) when Fighter.is_owner(owner),
     do: %{state | fighters: state.fighters |> State.Fighters.add(Fighter.new(piece, at, owner))}
+
+  def available_moves(%State{fighters: fighters} = state) do
+    fighters
+    |> Enum.filter(&(&1.owner == :player))
+    |> Enum.map(&{&1, &1 |> Fighter.available_moves()})
+    |> Enum.flat_map(fn {f, f_dirs} -> Enum.map(f_dirs, fn d -> {f, d} end) end)
+    |> Enum.map(fn {%{position: p} = f, dir} ->
+      target = Position.add(p, dir |> Move.to_vector())
+      {f, dir, target}
+    end)
+    |> Enum.map(fn
+      {fighter, direction, {:ok, position}} ->
+        {fighter, direction, fighter_by_position(state, position)}
+
+      _else ->
+        nil
+    end)
+    |> Enum.reject(&(&1 == nil))
+    |> Enum.reject(fn
+      {f, _d, %Fighter{} = t} -> f.owner == t.owner
+      _ -> false
+    end)
+    |> Enum.map(&Possibility.new/1)
+  end
 end
 
 defmodule AnimalShogiEx.Game.State.Fighters do
