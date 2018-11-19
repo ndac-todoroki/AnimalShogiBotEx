@@ -245,10 +245,10 @@ defimpl Inspect, for: AnimalShogiEx.Game.State do
   def inspect(%State{} = state, _) do
     list = state |> to_game_map
     hand = state |> hand_list
-    next_player = if Integer.is_odd(state.turn) == state.first?, do: "Player", else: "Opponent"
+    last_player = if Integer.is_even(state.turn) == state.first?, do: "Player", else: "Opponent"
 
     """
-    Turn #{state.turn} : #{next_player}'s turn
+    Turn #{state.turn} : #{last_player}'s move result
 
             1   2   3
           +---+---+---+
