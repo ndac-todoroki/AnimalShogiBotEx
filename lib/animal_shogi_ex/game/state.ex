@@ -75,8 +75,8 @@ defmodule AnimalShogiEx.Game.State do
   def add_to_hand(%__MODULE__{} = state, %Piece{} = piece, owner)
       when owner in ~w(player opponent)a do
     case owner do
-      :opponent -> %{state | his_hand: [piece | state.my_hand]}
-      :player -> %{state | my_hand: [piece | state.his_hand]}
+      :opponent -> %{state | his_hand: [piece | state.his_hand]}
+      :player -> %{state | my_hand: [piece | state.my_hand]}
     end
   end
 
@@ -186,6 +186,7 @@ defmodule AnimalShogiEx.Game.State do
   def add_fighter_at(state, %Piece{} = piece, owner, at) when Fighter.is_owner(owner),
     do: %{state | fighters: state.fighters |> State.Fighters.add(Fighter.new(piece, at, owner))}
 
+  @spec available_moves(State.t()) :: [Possibility.t()]
   def available_moves(%State{fighters: fighters} = state) do
     fighters
     |> Enum.filter(&(&1.owner == :player))
@@ -247,7 +248,7 @@ defimpl Inspect, for: AnimalShogiEx.Game.State do
     next_player = if Integer.is_odd(state.turn) == state.first?, do: "Player", else: "Opponent"
 
     """
-    Turn #{state.turn} : #{next_player}'s move'
+    Turn #{state.turn} : #{next_player}'s turn
 
             1   2   3
           +---+---+---+
@@ -270,12 +271,12 @@ defimpl Inspect, for: AnimalShogiEx.Game.State do
     |> Enum.map(fn {:ok, pos} -> pos end)
     |> Enum.map(&State.fighter_by_position(state, &1))
     |> Enum.map(fn
-      %{owner: :player, piece: p} -> "/" <> Piece.as_sigil(p) <> "\\"
-      %{owner: :opponent, piece: p} -> "\\" <> Piece.as_sigil(p) <> "/"
+      %{owner: :player, piece: p} -> "￪" <> Piece.as_emoji(p)
+      %{owner: :opponent, piece: p} -> "￬" <> Piece.as_emoji(p)
       :none -> "   "
     end)
     |> Enum.chunk_every(3)
   end
 
-  defp hand_list(%State{my_hand: hand}), do: hand |> Enum.map(&Piece.as_sigil/1) |> Enum.sort()
+  defp hand_list(%State{my_hand: hand}), do: hand |> Enum.map(&Piece.as_emoji/1) |> Enum.sort()
 end

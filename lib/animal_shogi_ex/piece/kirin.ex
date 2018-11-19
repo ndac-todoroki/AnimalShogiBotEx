@@ -26,4 +26,7 @@ defmodule AnimalShogiEx.Piece.Kirin do
 
   @impl Piece
   def sigil, do: "k"
+
+  @impl Piece
+  def emoji, do: "🦒"
 end

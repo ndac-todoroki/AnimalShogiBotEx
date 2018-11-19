@@ -30,4 +30,7 @@ defmodule AnimalShogiEx.Piece.Lion do
 
   @impl Piece
   def sigil, do: "l"
+
+  @impl Piece
+  def emoji, do: "🦁"
 end

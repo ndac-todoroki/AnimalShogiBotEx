@@ -26,4 +26,7 @@ defmodule AnimalShogiEx.Piece.Zo do
 
   @impl Piece
   def sigil, do: "z"
+
+  @impl Piece
+  def emoji, do: "🐘"
 end

@@ -19,4 +19,7 @@ defmodule AnimalShogiEx.Piece.Hiyoko do
 
   @impl Piece
   def sigil, do: "h"
+
+  @impl Piece
+  def emoji, do: "🐤"
 end

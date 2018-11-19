@@ -20,6 +20,7 @@ defmodule AnimalShogiEx.Piece do
   Return a sigil representing the Piece.
   """
   @callback sigil :: String.t()
+  @callback emoji :: String.t()
 
   @callback moveable_directions :: [Move.direction()]
 
@@ -44,6 +45,9 @@ defmodule AnimalShogiEx.Piece do
 
   @spec as_sigil(AnimalShogiEx.Piece.t()) :: String.t()
   def as_sigil(%Piece{type: type}) when is_type(type), do: type.sigil()
+
+  @spec as_emoji(AnimalShogiEx.Piece.t()) :: String.t()
+  def as_emoji(%Piece{type: type}) when is_type(type), do: type.emoji()
 
   def friendly_name(%Piece{type: type}) when is_type(type),
     do: type |> to_string() |> String.split(".") |> List.last()

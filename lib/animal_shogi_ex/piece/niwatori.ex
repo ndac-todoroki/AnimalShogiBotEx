@@ -28,4 +28,7 @@ defmodule AnimalShogiEx.Piece.Niwatori do
 
   @impl Piece
   def sigil, do: "n"
+
+  @impl Piece
+  def emoji, do: "🐔"
 end
