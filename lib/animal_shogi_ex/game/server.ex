@@ -11,27 +11,35 @@ defmodule AnimalShogiEx.Game.Server do
 
   use GenServer
 
-  defstruct [:game_state, :game_id, :socket]
+  defstruct [:game_state, :game_id, :socket, :notify_dest]
 
   @type t :: %__MODULE__{
           game_state: State.t(),
           game_id: String.t(),
-          socket: Port.t()
+          socket: Port.t(),
+          notify_dest: Process.dest() | nil
         }
 
   @type t_pre :: %__MODULE__{
           game_state: State.t(),
           game_id: String.t() | nil,
-          socket: Port.t()
+          socket: Port.t(),
+          notify_dest: Process.dest() | nil
         }
 
   @domain 'shogi.keio.app'
   @port 80
 
-  def start_link(_), do: GenServer.start_link(Game.Server, [])
+  def start_link(opts), do: GenServer.start_link(Game.Server, opts)
 
   @impl GenServer
-  @spec init(any) :: {:ok, t_pre}
+  @spec init(opts) :: {:ok, t_pre} when opts: [dest: Process.dest()] | nil
+  def init(dest: dest) do
+    {:ok, socket} = :gen_tcp.connect(@domain, @port, [:binary, {:packet, 0}, {:active, true}])
+
+    {:ok, %__MODULE__{game_state: State.initial_board(), socket: socket, notify_dest: dest}}
+  end
+
   def init(_) do
     {:ok, socket} = :gen_tcp.connect(@domain, @port, [:binary, {:packet, 0}, {:active, true}])
 
@@ -102,39 +110,24 @@ defmodule AnimalShogiEx.Game.Server do
   @impl GenServer
   def handle_info(
         {:tcp, _socket,
-         "BEGIN Game_Summary\nGame_ID:" <>
-           <<game_id::bytes-size(17)>> <> "\nYour_Turn:" <> "-" <> "\nEND Game_Summary\n"},
+         "Game_ID:" <>
+           <<game_id::bytes-size(17)>> <>
+           "\nYour_Turn:" <> <<first::bytes-size(1)>> <> "\nEND Game_Summary\n"},
         %__MODULE__{} = state
-      ) do
-    state = put_in(state.game_state.first?, false)
+      )
+      when first in ~w(+ -) do
+    first? = first == "+"
+    state = put_in(state.game_state.first?, first?)
     state = %{state | game_id: game_id, game_state: state.game_state |> State.next_turn()}
 
     IO.puts("""
     Game ID: #{game_id}
-    First move: Opponent
+    First move: #{if first?, do: "YOU", else: "opponent"}!
     """)
 
     IO.puts(inspect state.game_state)
 
-    {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_info(
-        {:tcp, _socket,
-         "BEGIN Game_Summary\nGame_ID:" <>
-           <<game_id::bytes-size(17)>> <> "\nYour_Turn:" <> "+" <> "\nEND Game_Summary\n"},
-        %__MODULE__{} = state
-      ) do
-    state = put_in(state.game_state.first?, true)
-    state = %{state | game_id: game_id, game_state: state.game_state |> State.next_turn()}
-
-    IO.puts("""
-    Game ID: #{game_id}
-    First move: YOU!
-    """)
-
-    IO.puts(inspect state.game_state)
+    notify_state(state)
 
     {:noreply, state}
   end
@@ -154,6 +147,8 @@ defmodule AnimalShogiEx.Game.Server do
       state = state |> drop_fighter(player, Piece.from_type(type), at) |> elem(1)
       IO.puts(inspect state.game_state)
       IO.puts("#{player} dropped #{type} to #{inspect at}")
+
+      notify_state(state)
 
       {:noreply, state}
     else
@@ -193,26 +188,31 @@ defmodule AnimalShogiEx.Game.Server do
            <<to::bytes-size(2)>> <> ",OK\n" <> "#GAME_OVER\n#" <> result},
         %__MODULE__{} = state
       )
-      when player in ~w(+ -) and result in ~w(WIN LOSE) do
-    IO.puts("""
-    GAME OVER!
+      when player in ~w(+ -) and result in ["WIN\n", "LOSE\n"] do
+    reply = {_, state} = do_move(state, from, to, false)
+    notify_gameover(state, result)
 
-    You #{result}
-    """)
-
-    do_move(state, from, to, false)
+    reply
   end
 
   @impl GenServer
-  def handle_info({:tcp, _socket, "#GAME_OVER\n#" <> result}, %__MODULE__{} = state)
-      when result in ~w(WIN LOSE) do
-    IO.puts("""
-    GAME OVER!
+  def handle_info({:tcp, _socket, "#ILLEGAL\n#LOSE\n"}, %__MODULE__{} = state) do
+    notify_gameover(state, "LOSE")
+    {:noreply, state}
+  end
 
-    #{inspect state.game_state}
+  @impl GenServer
+  def handle_info({:tcp, _socket, win}, %__MODULE__{} = state)
+      when win in ["#GAME_OVER\n#WIN\n", "#WIN\n"] do
+    notify_gameover(state, "WIN")
+    {:noreply, state}
+  end
 
-    You #{result}
-    """)
+  @impl GenServer
+  def handle_info({:tcp, _socket, lose}, %__MODULE__{} = state)
+      when lose in ["#GAME_OVER\n#LOSE\n", "#LOSE\n"] do
+    notify_gameover(state, "LOSE")
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -230,6 +230,7 @@ defmodule AnimalShogiEx.Game.Server do
   @impl GenServer
   def handle_info({:tcp_error, socket, reason}, state) do
     IO.inspect(socket, label: "connection closed dut to #{reason}")
+    notify_error(state)
     {:noreply, state}
   end
 
@@ -245,10 +246,18 @@ defmodule AnimalShogiEx.Game.Server do
 
         _ ->
           if State.valid_move?(state.game_state, from, to) do
+            # TODO: refine
             message =
-              State.prefix(state.game_state) <>
-                Position.to_string(from) <>
-                Position.to_string(to) <> if(promotion, do: "+", else: "")
+              if state.game_state.first? do
+                State.prefix(state.game_state) <>
+                  Position.to_string(from) <>
+                  Position.to_string(to) <> if(promotion, do: "+", else: "")
+              else
+                State.prefix(state.game_state) <>
+                  (from |> Position.inverse() |> Position.to_string()) <>
+                  (to |> Position.inverse() |> Position.to_string()) <>
+                  if(promotion, do: "+", else: "")
+              end
 
             state.socket |> :gen_tcp.send(message |> String.to_charlist())
 
@@ -373,6 +382,7 @@ defmodule AnimalShogiEx.Game.Server do
          {:ok, to} <- to |> convert_to_position(state),
          {:ok, state} <- state |> move_fighter(from, to, naru?) do
       IO.puts(inspect state.game_state)
+      notify_state(state)
       {:noreply, state}
     else
       {:error, :out_of_bounds} ->
@@ -389,5 +399,36 @@ defmodule AnimalShogiEx.Game.Server do
 
         {:noreply, state}
     end
+  end
+
+  ### Notifiers
+
+  defp notify_state(%__MODULE__{notify_dest: nil}), do: :nothing
+
+  defp notify_state(%__MODULE__{notify_dest: dest, game_state: state}) do
+    Kernel.send(dest, {__MODULE__, :new_state, state})
+  end
+
+  defp notify_error(%__MODULE__{notify_dest: nil}), do: :nothing
+
+  defp notify_error(%__MODULE__{notify_dest: dest, game_state: state}),
+    do: Kernel.send(dest, {__MODULE__, :error, state})
+
+  defp notify_gameover(%__MODULE__{notify_dest: nil}, result) do
+    IO.puts("""
+    GAME OVER!
+
+    You #{result}
+    """)
+  end
+
+  defp notify_gameover(%__MODULE__{notify_dest: dest, game_state: state}, result) do
+    IO.puts("""
+    GAME OVER!
+
+    You #{result}
+    """)
+
+    Kernel.send(dest, {__MODULE__, :game_over, state, result})
   end
 end
