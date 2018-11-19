@@ -19,9 +19,10 @@ defmodule AnimalShogiEx.Game do
     DOWN_RIGHT
   }
 
-  @directions ~w(Elixir.UP Elixir.DOWN Elixir.LEFT Elixir.RIGHT Elixir.UPLEFT Elixir.UPRIGHT Elixir.DOWNLEFT Elixir.DOWNRIGHT)a
-  @direction_map @directions
-                 |> Enum.zip([UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT])
+  @directions [UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT]
+  @direction_atoms ~w(Elixir.UP Elixir.DOWN Elixir.LEFT Elixir.RIGHT Elixir.UPLEFT Elixir.UPRIGHT Elixir.DOWNLEFT Elixir.DOWNRIGHT)a
+  @direction_map @direction_atoms
+                 |> Enum.zip(@directions)
                  |> Enum.into(%{})
 
   require Piece
@@ -33,13 +34,22 @@ defmodule AnimalShogiEx.Game do
 
   def start, do: start_link()
   def start_link, do: Game.Server.start_link([])
+  def start_link(pid), do: Game.Server.start_link(dest: pid)
 
   def accept(game), do: GenServer.cast(game, :accept)
 
   @spec move(pid(), <<_::16>>, atom) :: any()
-  def move(game, from_string, direction) when direction in @directions do
+  def move(game, from_string, direction) when direction in @direction_atoms do
     with {:ok, from_position} <- Position.new(from_string) do
       GenServer.call(game, {:move, {from_position, Map.fetch!(@direction_map, direction)}})
+    else
+      err -> err
+    end
+  end
+
+  def move(game, from_string, direction) when direction in @directions do
+    with {:ok, from_position} <- Position.new(from_string) do
+      GenServer.call(game, {:move, {from_position, direction}})
     else
       err -> err
     end
